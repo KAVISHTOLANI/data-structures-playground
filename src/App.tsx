@@ -1,12 +1,306 @@
-import {useEffect,useMemo,useState} from 'react';import {uid,toMarkdown,csv} from './logic';import './styles.css';
-const cfg={"slug":"data-structures-playground","name":"Node Garden","purpose":"Interactive stacks, queues, linked lists, and binary trees with visual state changes.","kind":"structures","fields":["Value","structure","operation","position","notes"],"accent":"teal"} as const;const pages=[['home','Home'],['workspace','Playground'],['guide','Structure guide'],['examples','Operations'],['reference','Reference'],['help','Help']] as const;type Page=typeof pages[number][0];type Item={id:string;title:string;createdAt:string;[key:string]:string};const key='local-portfolio:'+cfg.slug;const makeDemo=():Item[]=>['Field note — Alder','Follow-up — Miro','Review — Sol','Plan — Juniper','Archive — Nia','Decision — Rowan','Reminder — Theo','Research — Imani','Checklist — Ellis','Exception — Saffron'].map((title,i)=>({id:'demo-'+i,title,createdAt:new Date(Date.now()-i*86400000).toISOString(),[cfg.fields[1]]:['In focus','Scheduled','Reviewed','Waiting','Reference'][i%5],[cfg.fields[2]]:['Ready','Needs review','Complete','Paused','Archived'][i%5],[cfg.fields[3]]:new Date(Date.now()+(i-3)*86400000).toISOString().slice(0,10),[cfg.fields[4]]:i===4?'A longer fictional note showing a realistic exception, the decision taken, and what should be checked before the record is used again.':'Fictional demo data for a populated local workspace.'}));function download(n:string,s:string,t='text/plain'){const x=document.createElement('a');x.href=URL.createObjectURL(new Blob([s],{type:t}));x.download=n;x.click();URL.revokeObjectURL(x.href)}
-export default function App(){const requested=location.hash.slice(1);const [page,setPage]=useState<Page|'notfound'>(()=>pages.some(([id])=>id===requested)?requested as Page:requested?'notfound':'home');const [records,setRecords]=useState<Item[]>(()=>{try{return JSON.parse(localStorage.getItem(key)||'null')||makeDemo()}catch{return makeDemo()}});const [form,setForm]=useState<Record<string,string>>({});const [query,setQuery]=useState('');const [notice,setNotice]=useState('');const [answer,setAnswer]=useState('');const [editing,setEditing]=useState<Item|null>(null);useEffect(()=>{document.title=(page==='home'?cfg.name:page==='notfound'?'Page not found':cfg.name+' — '+page);if(page!=='notfound')location.hash=page},[page]);const save=(x:Item[])=>{setRecords(x);localStorage.setItem(key,JSON.stringify(x))};const filtered=useMemo(()=>records.filter(r=>JSON.stringify(r).toLowerCase().includes(query.toLowerCase())),[records,query]);const add=(ev:React.FormEvent)=>{ev.preventDefault();const title=form[cfg.fields[0]]?.trim();if(!title){setNotice('Add a '+cfg.fields[0].toLowerCase()+' before saving.');return}const next={id:editing?.id||uid(),title,createdAt:editing?.createdAt||new Date().toISOString()} as Item;cfg.fields.forEach(f=>next[f]=form[f]||'');save(editing?records.map(r=>r.id===editing.id?next:r):[next,...records]);setForm({});setEditing(null);setNotice(editing?'Record updated locally.':'Saved locally. You can now find it in the archive or export it.')};const importJson=async(file?:File)=>{if(!file)return;try{const parsed=JSON.parse(await file.text());if(!Array.isArray(parsed)||!parsed.every(x=>x&&typeof x.title==='string'))throw new Error();save(parsed);setNotice('Imported '+parsed.length+' records into this browser.')}catch{setNotice('That file is not a valid export. Your existing records were left unchanged.')}};return <div className={'app '+cfg.accent}><div className="shell"><header><div className="brand"><small>LOCAL EDITION</small>{cfg.name}</div><nav aria-label="Primary">{pages.map(([id,label])=><button className={page===id?'active':''} key={id} onClick={()=>setPage(id)}>{label}</button>)}</nav></header>{page==='home'&&<Home records={records} open={()=>setPage('workspace')}/>} {page==='workspace'&&<Workspace/>}{page==='notfound'&&<NotFound/>}{page==='guide'&&<Guide title="Structure guide"/>}{page==='examples'&&<Examples/>}{page==='reference'&&<Reference/>}{page==='help'&&<Help/>}</div></div>;
-function Home({records,open}:{records:Item[];open:()=>void}){return <><section className="hero"><div><p className="eyebrow">A CLEARER WAY TO WORK LOCALLY</p><h1>Node Garden keeps the important details <i>findable.</i></h1><p>Data structures make more sense when an add or remove operation visibly changes the structure.</p><div className="actions"><button className="primary" onClick={open}>Open playground</button><button onClick={()=>download(cfg.slug+'-demo.md',toMarkdown(cfg.name,records))}>Export demo</button></div></div><aside className="preview"><div className="preview-head">LIVE SAMPLE <span>● DEMO DATA</span></div><div className="preview-title">What is ready today</div>{records.slice(0,3).map((r,i)=><div className="peek" key={r.id}><div><b>{r.title}</b><br/><small>{r[cfg.fields[1]]}</small></div><span>{i===0?'NOW':'SAVED'}</span></div>)}<div className="preview-foot">No account. No sync. Export when you choose.</div></aside></section><section className="section"><p className="eyebrow">01 / FIRST RECORD</p><h2>Begin with a record you will need again.</h2><p>Pick a structure, add a value, remove one, and read the explanation of why the visible state changed.</p><div className="card-grid"><div className="info-card"><strong>1. Name the detail</strong><p>Use the first field for the thing you will search for later, rather than a vague catch-all.</p></div><div className="info-card"><strong>2. Add context</strong><p>Record the practical facts beside it: status, timing, and the note that explains the decision.</p></div><div className="info-card"><strong>3. Review deliberately</strong><p>Search your local history, export when needed, and remove data that is no longer useful.</p></div></div></section><section className="section story"><p className="eyebrow">02 / WHY THIS RECORD EXISTS</p><h2>Small details are where useful decisions begin.</h2><p>{cfg.purpose} This is deliberately a local record rather than a social feed, an account portal, or an automated recommendation. It gives you a calm place to capture the exact fact, its context, and the practical next question while you still remember why it matters.</p><p>Every entry is searchable by the words you wrote. Use concise fields for things you expect to compare later, then use the note for nuance: an exception, an uncertainty, or the reason a future version of you should pause before acting.</p></section><section className="section"><p className="eyebrow">03 / THE CURRENT DESK</p><h2>Ten examples, clearly fictional.</h2><p>The first records are labelled demo data. They exist to demonstrate active, scheduled, reviewed, and archived states—never to imply real people, transactions, outcomes, or activity.</p><div className="card-grid">{records.slice(0,6).map((r,i)=><div className="info-card" key={r.id}><strong>{String(i+1).padStart(2,'0')} · {r.title}</strong><p>{r[cfg.fields[1]]} · {r[cfg.fields[2]]}<br/>{r[cfg.fields[4]]}</p></div>)}</div></section><section className="section"><p className="eyebrow">04 / A PRACTICAL LOOP</p><h2>Capture. Review. Carry forward.</h2><div className="card-grid"><div className="info-card"><strong>Capture</strong><p>Open the workspace when the detail is fresh. The required title prevents a record that cannot be found later.</p></div><div className="info-card"><strong>Review</strong><p>Search by a name, category, status, or note. Empty results are an invitation to change the query, not a dead end.</p></div><div className="info-card"><strong>Carry forward</strong><p>Export a Markdown or CSV copy before a handoff, a planning session, or a browser reset. Local data is yours to move.</p></div></div></section><section className="section"><p className="eyebrow">05 / WHAT THE TOOL DOES NOT DO</p><h2>Clear boundaries are part of the design.</h2><p>This app does not silently synchronize, infer facts, send reminders, or make a recommendation for you. Dates, labels, financial figures, health-related notes, disposal guidance, and any decisions based on them depend entirely on the information you enter and the context you verify.</p></section><section className="section"><p className="eyebrow">06 / KEEP A PORTABLE COPY</p><h2>Local-first should never mean trapped.</h2><p>Use JSON import and export for a browser-local backup, or CSV and Markdown when you need a readable copy. Imported JSON replaces the current local collection only after the file is successfully parsed; malformed files leave the saved records unchanged and show a clear error.</p></section><section className="section"><p className="eyebrow">07 / CONTINUE IN THE TOOL</p><h2>Use the real workspace, not a mock-up.</h2><p>The preview above is built from the same saved records used in the workspace. Open it to add, edit, remove, filter, import, and export local data.</p><div className="actions"><button className="primary" onClick={open}>Open workspace</button></div></section><footer className="section footer"><p className="eyebrow">08 / LOCAL PROJECT NOTES</p><p>This product stores its data in the active browser profile. Read the guide and limitations before relying on it for a consequential decision.</p></footer></>}
-function Workspace(){return <section className="workspace"><div className="toolbar"><input aria-label="Search records" value={query} onChange={e=>setQuery(e.target.value)} placeholder={'Search '+cfg.name}/><button onClick={()=>download(cfg.slug+'.md',toMarkdown(cfg.name,records))}>Export Markdown</button><button onClick={()=>download(cfg.slug+'.csv',csv(records),'text/csv')}>Export CSV</button><button onClick={()=>download(cfg.slug+'.json',JSON.stringify(records,null,2),'application/json')}>Export JSON</button><label className="import">Import JSON<input type="file" accept="application/json" onChange={e=>importJson(e.target.files?.[0])}/></label></div><div className="grid"><form onSubmit={add}><h2>Add structures</h2>{cfg.fields.map((f,i)=><label key={f}>{f}<input required={i===0} value={form[f]||''} onChange={e=>setForm({...form,[f]:e.target.value})} placeholder={'Enter '+f.toLowerCase()}/></label>)}<button className="primary">{editing?'Save changes':'Save record'}</button>{editing&&<button type="button" onClick={()=>{setEditing(null);setForm({})}}>Cancel edit</button>}{notice&&<p className="notice" role="status">{notice}</p>}</form><article className="records"><h2>{filtered.length} records</h2>{filtered.length===0?<p className="empty">No records match that search. Clear the search or create the first local record.</p>:filtered.map(r=><section className="card" key={r.id}><div><h3>{r.title}</h3>{cfg.fields.slice(1).map(f=><p key={f}><b>{f}</b> {r[f]||'—'}</p>)}</div><div><button onClick={()=>{setEditing(r);const values:Record<string,string>={};cfg.fields.forEach(f=>values[f]=r[f]||'');setForm(values);window.scrollTo({top:0,behavior:'smooth'})}}>Edit</button><button onClick={()=>{save(records.filter(x=>x.id!==r.id));setNotice('Record removed from this browser.')}}>Delete</button></div></section>)}</article></div><Special/></section>}
-function NotFound(){return <section className="section"><p className="eyebrow">404 / LOCAL ROUTE</p><h2>That page is not in this edition.</h2><p>Use the navigation to return to a known section.</p><button className="primary" onClick={()=>setPage('home')}>Return home</button></section>}
-function Guide({title}:{title:string}){return <Content kicker="02 / FIELD GUIDE" title={title} body="stack, queue, node, operation are the working vocabulary in this tool. The guide does not prescribe a single right process; it explains what each field records, why it is there, and how to keep the record useful over time." cards={[['Use plain language','Write the term that a future version of you will recognise quickly.'],['Keep dates practical','Use a date only when it helps you decide what to do or review next.'],['Separate facts from notes','Use short fields for filtering and the note for the detail that does not fit a label.']]}/>}
-function Examples(){return <Content kicker="03 / WORKED EXAMPLES" title="A record with enough context." body="The sample records are fictional and labelled as demo data. They show the difference between a title that can be found, structured fields that can be scanned, and a note that preserves the reason behind a decision." cards={[['A current item','Marked In focus, with a near date and a concise note.'],['A scheduled item','Has a future date so it appears when you are planning ahead.'],['An edge case','Uses a longer note to prove that more context remains readable.']]}/>}
-function Reference(){return <Content kicker="04 / METHOD" title="How this local tool handles information." body="Node Garden stores records in this browser using localStorage. Search runs against the saved local data. Markdown and CSV exports are created in your browser. There is no account, server synchronization, automatic backup, or claim that this record is authoritative outside the information you enter." cards={[['Local first','Your records remain in the active browser profile until you export or remove them.'],['Simple exports','Exports are designed to be readable and portable, not a full database backup format.'],['Human review','Dates, amounts, labels, and reminders depend on the data you enter and should be checked before acting.']]}/>}
-function Help(){return <section className="section"><p className="eyebrow">05 / HELP & LIMITS</p><h2>Useful boundaries make a tool more trustworthy.</h2><div className="faq"><details open><summary>Where is my data stored?</summary><p>In localStorage for this browser profile. Clearing browser data may remove it; use an export for a copy you control.</p></details><details><summary>Is the demo data real?</summary><p>No. It is fictional sample material designed to show populated, long-text, status, and archive states.</p></details><details><summary>What happens when a form is incomplete?</summary><p>The first field is required. The form gives a plain-language message and keeps the entered values available to correct.</p></details><details><summary>Can this replace specialist advice?</summary><p>No. It is a personal organization aid. The limitations and relevant disclaimers should guide how you use the records.</p></details></div></section>}
-function Content({kicker,title,body,cards}:{kicker:string;title:string;body:string;cards:string[][]}){return <section className="section"><p className="eyebrow">{kicker}</p><h2>{title}</h2><p>{body}</p><div className="card-grid">{cards.map(c=><div className="info-card" key={c[0]}><strong>{c[0]}</strong><p>{c[1]}</p></div>)}</div></section>}
-function Special(){if((cfg.kind as string)==='algorithm')return <section className="lab"><h2>Visible operations</h2><p>Use these controls to see an ordered set change. They are deliberately small: the explanation matters more than spectacle.</p><button onClick={()=>setAnswer('Values sorted: 4, 7, 12, 19')}>Sort sample</button><button onClick={()=>setAnswer('One comparison explained: 12 is greater than 7, so it moves after 7.')}>Explain step</button><p role="status">{answer}</p></section>;if((cfg.kind as string)==='garden')return <section className="lab"><h2>Bed grid</h2><div className="bed">{Array.from({length:12},(_,i)=><button key={i} onClick={()=>setAnswer('Plant marker placed in bed cell '+(i+1))}>{answer.includes(String(i+1))?'●':'+'}</button>)}</div><p role="status">{answer||'Select a cell to place a marker.'}</p></section>;return <section className="lab"><h2>Practice note</h2><p>Use this local workspace with the guide alongside it. A good record is specific enough to help later and short enough to keep current.</p></section>}}
+import { useState, type ReactNode } from 'react';
+import { Landing, NotFound, Notice, PageHead, Shell, usePersistentState, useRoute } from './shared/ui';
+import { bstDelete, bstInsert, bstSearch, dequeue, enqueue, find, fromKeys, heapPop, heapPush, height, insertAt, layout, parseValue, pop, push, removeValue, reverse, size, traverse, type BNode, type Order, type Result } from './lib/structures';
+
+const KEY = 'node-garden:store';
+const NAV = [
+  { to: '/', label: 'Overview' },
+  { to: '/stack', label: 'Stack' },
+  { to: '/queue', label: 'Queue' },
+  { to: '/list', label: 'Linked list' },
+  { to: '/bst', label: 'Search tree' },
+  { to: '/heap', label: 'Heap' },
+];
+const CAPACITY = 8;
+
+interface LogEntry { op: string; message: string; cost: string; ok: boolean }
+interface Store {
+  stack: number[];
+  queue: number[];
+  list: number[];
+  bst: BNode | null;
+  heap: number[];
+  logs: Record<string, LogEntry[]>;
+}
+
+const initial = (): Store => ({ stack: [12, 7, 31], queue: [4, 18, 9, 27], list: [8, 15, 23, 42], bst: fromKeys([50, 30, 70, 20, 40, 60, 80, 35, 65]), heap: [2, 5, 3, 9, 6, 8, 4], logs: {} });
+
+export default function App() {
+  const [route] = useRoute();
+  const [store, setStore] = usePersistentState<Store>(KEY, initial);
+  const ctx = { store, setStore };
+  let page: ReactNode;
+  if (route === '/') page = <Home />;
+  else if (route === '/stack') page = <StackPage {...ctx} />;
+  else if (route === '/queue') page = <QueuePage {...ctx} />;
+  else if (route === '/list') page = <ListPage {...ctx} />;
+  else if (route === '/bst') page = <BstPage {...ctx} />;
+  else if (route === '/heap') page = <HeapPage {...ctx} />;
+  else page = <NotFound />;
+  return (
+    <Shell name="Node Garden" wordmark={['Node', 'Garden']} nav={NAV} route={route} cta={{ to: '/bst', label: 'Grow a tree' }} footerNote="Each structure keeps its state in this browser; use Reset to start again.">
+      {page}
+    </Shell>
+  );
+}
+
+type Ctx = { store: Store; setStore: (s: Store) => void };
+
+/** Applies an operation result and records it in the page’s log. */
+function useOp(store: Store, setStore: (s: Store) => void, page: string) {
+  const [last, setLast] = useState<{ visited: number[]; message: string; ok: boolean; tick: number } | null>(null);
+  function apply<T>(op: string, r: Result<T>, patch: (v: T) => Partial<Store>) {
+    setStore({ ...store, ...(r.ok ? patch(r.value) : {}), logs: { ...store.logs, [page]: [{ op, message: r.message, cost: r.cost, ok: r.ok }, ...(store.logs[page] ?? [])].slice(0, 12) } });
+    setLast({ visited: r.visited, message: r.message, ok: r.ok, tick: Date.now() });
+  }
+  return { last, apply, log: store.logs[page] ?? [] };
+}
+
+function ValueInput({ label, onSubmit, buttons, hint }: { label: string; onSubmit?: (v: number) => void; buttons: { label: string; need?: boolean; act: (v: number | null) => void; primary?: boolean }[]; hint?: string }) {
+  const [text, setText] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const run = (b: (typeof buttons)[number]) => {
+    const v = parseValue(text);
+    if (b.need !== false && v == null) return setErr('Enter a whole number from −999 to 999.');
+    setErr(null);
+    b.act(v);
+    if (b.need !== false) setText('');
+  };
+  return (
+    <form className="card ops" onSubmit={(e) => { e.preventDefault(); run(buttons[0]); onSubmit?.(Number(text)); }} noValidate>
+      <div className="field">
+        <label htmlFor="val">{label}</label>
+        <input id="val" inputMode="numeric" value={text} onChange={(e) => setText(e.target.value)} aria-invalid={!!err} aria-describedby={err ? 'val-err' : hint ? 'val-hint' : undefined} />
+        {hint && !err && <span className="hint" id="val-hint">{hint}</span>}
+        {err && <span className="error-text" id="val-err">{err}</span>}
+      </div>
+      <div className="row">{buttons.map((b, i) => <button key={b.label} type={i === 0 ? 'submit' : 'button'} className={`btn ${b.primary || i === 0 ? 'btn-primary' : ''}`} onClick={i === 0 ? undefined : () => run(b)}>{b.label}</button>)}</div>
+    </form>
+  );
+}
+
+function Log({ log }: { log: LogEntry[] }) {
+  if (!log.length) return <p className="small muted">Operations you run appear here with their cost.</p>;
+  return <ol className="oplog" aria-label="Operation log">{log.map((l, i) => <li key={i} className={l.ok ? '' : 'fail'}><span className="mono op">{l.op}</span><span>{l.message}</span><span className="badge">{l.cost}</span></li>)}</ol>;
+}
+
+function Status({ last }: { last: ReturnType<typeof useOp>['last'] }) {
+  if (!last) return null;
+  return <Notice kind={last.ok ? 'info' : 'warn'}><span data-testid="message">{last.message}</span></Notice>;
+}
+
+function Cells({ values, visited, tick, labels, vertical }: { values: number[]; visited: number[]; tick?: number; labels?: (i: number) => string | null; vertical?: boolean }) {
+  return (
+    <ol className={`cells ${vertical ? 'vertical' : ''}`} key={tick}>
+      {values.map((v, i) => {
+        const step = visited.indexOf(i);
+        return (
+          <li key={`${i}-${v}`} className={`cell ${step >= 0 ? 'hit' : ''}`} style={{ ['--d' as string]: `${Math.max(0, step) * 180}ms` }}>
+            <b>{v}</b>{labels?.(i) && <span className="cell-l">{labels(i)}</span>}
+          </li>
+        );
+      })}
+      {!values.length && <li className="cell empty">empty</li>}
+    </ol>
+  );
+}
+
+/* ---------- Tree drawing (used by BST and heap) ---------- */
+function Tree({ nodes, edges, visited, tick, label }: { nodes: { id: number; label: number; x: number; y: number }[]; edges: { from: number; to: number }[]; visited: number[]; tick?: number; label: string }) {
+  if (!nodes.length) return <p className="muted">The tree is empty.</p>;
+  const cols = Math.max(...nodes.map((n) => n.x)) + 1, rows = Math.max(...nodes.map((n) => n.y)) + 1;
+  const W = Math.max(320, cols * 52), H = rows * 70 + 20;
+  const px = (n: { x: number }) => 26 + n.x * ((W - 52) / Math.max(1, cols - 1));
+  const py = (n: { y: number }) => 30 + n.y * 70;
+  const by = new Map(nodes.map((n) => [n.id, n]));
+  return (
+    <svg className="tree" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} key={tick}>
+      {edges.map((e) => { const a = by.get(e.from)!, b = by.get(e.to)!; return <line key={`${e.from}-${e.to}`} x1={px(a)} y1={py(a)} x2={px(b)} y2={py(b)} className="edge" />; })}
+      {nodes.map((n) => {
+        const step = visited.indexOf(n.id);
+        return (
+          <g key={n.id} transform={`translate(${px(n)},${py(n)})`} className={`tnode ${step >= 0 ? 'hit' : ''}`} style={{ ['--d' as string]: `${Math.max(0, step) * 220}ms` }}>
+            <circle r={20} />
+            <text y={5} textAnchor="middle">{n.label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function bstView(root: BNode | null) {
+  const { nodes, edges } = layout(root);
+  return { nodes: nodes.map((n) => ({ id: n.key, label: n.key, x: n.x, y: n.y })), edges };
+}
+
+function heapView(a: number[]) {
+  const depth = (i: number) => Math.floor(Math.log2(i + 1));
+  const rows = a.length ? depth(a.length - 1) + 1 : 0;
+  const cols = 2 ** Math.max(0, rows - 1);
+  const nodes = a.map((v, i) => { const d = depth(i), pos = i - (2 ** d - 1), span = cols / 2 ** d; return { id: i, label: v, x: (pos + 0.5) * span * 2 - 1, y: d }; });
+  const minX = Math.min(0, ...nodes.map((n) => n.x));
+  return { nodes: nodes.map((n) => ({ ...n, x: (n.x - minX) / 1 })), edges: a.slice(1).map((_, k) => ({ from: Math.floor(k / 2), to: k + 1 })) };
+}
+
+function HeroPreview() {
+  const t = fromKeys([50, 30, 70, 20, 40, 60, 80, 35]);
+  const v = bstView(t);
+  return (
+    <div className="hero-ng">
+      <Tree {...v} visited={bstSearch(t, 35).visited} tick={1} label="Binary search tree with the search path for 35 highlighted" />
+      <p className="small muted">Searching for 35: 50 → 30 → 40 → 35, four comparisons for {size(t)} keys.</p>
+    </div>
+  );
+}
+
+function Home() {
+  return (
+    <Landing
+      eyebrow="Data structures playground"
+      title={<>Push it, pop it, <em>watch it grow.</em></>}
+      lead="Operate real stacks, queues, linked lists, binary search trees and heaps. Every operation shows the nodes it visits in order, explains what happened, and logs its cost in Big-O."
+      primary={{ href: '#/bst', label: 'Grow a search tree' }}
+      secondary={{ href: '#/stack', label: 'Start with a stack' }}
+      previewLabel="Search path — live"
+      preview={<HeroPreview />}
+      compact
+      steps={[
+        { title: 'Pick a structure', body: 'Five structures, each with its own page and starting data.' },
+        { title: 'Run operations', body: 'Type a number and push, enqueue, insert, delete, search, traverse or extract.' },
+        { title: 'Read the trail', body: 'Visited nodes light up in order, and the log records each step with its cost.' },
+      ]}
+      features={[
+        { title: 'All three BST deletes', body: 'Leaf, one child, and two children (replaced by the in-order successor).' },
+        { title: 'Four traversals', body: 'In-order, pre-order, post-order and level-order, played back node by node.' },
+        { title: 'Heap as array and tree', body: 'See the same min-heap both ways while values sift up and down.' },
+        { title: 'Honest edge cases', body: 'Underflow, overflow, duplicates and missing values are explained, not hidden.' },
+      ]}
+      closing={{ title: <>Data structures, <em>hands on.</em></>, action: { href: '#/bst', label: 'Open the playground' } }}
+    />
+  );
+}
+
+/* ---------- Pages ---------- */
+function StackPage({ store, setStore }: Ctx) {
+  const { last, apply, log } = useOp(store, setStore, 'stack');
+  return (
+    <div className="stack">
+      <PageHead eyebrow="Stack · last in, first out" title={<>The <em>stack.</em></>} description="Like a pile of plates: you add and remove at the top only." actions={<button type="button" className="btn btn-ghost" onClick={() => setStore({ ...store, stack: initial().stack })}>Reset</button>} />
+      <ValueInput label="Value" buttons={[{ label: 'Push', act: (v) => apply(`push(${v})`, push(store.stack, v!), (s) => ({ stack: s })) }, { label: 'Pop', need: false, act: () => apply('pop()', pop(store.stack), (s) => ({ stack: s })) }, { label: 'Peek', need: false, act: () => apply('peek()', { value: store.stack, visited: store.stack.length ? [store.stack.length - 1] : [], message: store.stack.length ? `The top is ${store.stack.at(-1)}` : 'The stack is empty', cost: 'O(1)', ok: store.stack.length > 0 }, () => ({})) }]} />
+      <Status last={last} />
+      <div className="layout-main">
+        <section className="card viz-stack" aria-label={`Stack, top to bottom: ${[...store.stack].reverse().join(', ') || 'empty'}`}>
+          <Cells values={[...store.stack].reverse()} visited={(last?.visited ?? []).map((i) => store.stack.length - 1 - i)} tick={last?.tick} labels={(i) => (i === 0 ? 'top' : null)} vertical />
+        </section>
+        <aside className="card stack"><h2 className="h3">Log</h2><Log log={log} /></aside>
+      </div>
+    </div>
+  );
+}
+
+function QueuePage({ store, setStore }: Ctx) {
+  const { last, apply, log } = useOp(store, setStore, 'queue');
+  return (
+    <div className="stack">
+      <PageHead eyebrow="Queue · first in, first out" title={<>The <em>queue.</em></>} description={`Join at the back, leave from the front. This queue holds up to ${CAPACITY} items.`} actions={<button type="button" className="btn btn-ghost" onClick={() => setStore({ ...store, queue: initial().queue })}>Reset</button>} />
+      <ValueInput label="Value" buttons={[{ label: 'Enqueue', act: (v) => apply(`enqueue(${v})`, enqueue(store.queue, v!, CAPACITY), (q) => ({ queue: q })) }, { label: 'Dequeue', need: false, act: () => apply('dequeue()', dequeue(store.queue), (q) => ({ queue: q })) }]} />
+      <Status last={last} />
+      <div className="layout-main">
+        <section className="card stack" aria-label={`Queue, front to back: ${store.queue.join(', ') || 'empty'}`}>
+          <div className="row-between small muted"><span>← front (leaves first)</span><span>back (joins here) ←</span></div>
+          <Cells values={store.queue} visited={last?.visited ?? []} tick={last?.tick} labels={(i) => (i === 0 ? 'front' : i === store.queue.length - 1 ? 'back' : null)} />
+          <div className="progress" role="progressbar" aria-label="Capacity used" aria-valuemin={0} aria-valuemax={CAPACITY} aria-valuenow={store.queue.length}><span style={{ width: `${(store.queue.length / CAPACITY) * 100}%` }} /></div>
+          <p className="small muted">{store.queue.length} of {CAPACITY} slots used</p>
+        </section>
+        <aside className="card stack"><h2 className="h3">Log</h2><Log log={log} /></aside>
+      </div>
+    </div>
+  );
+}
+
+function ListPage({ store, setStore }: Ctx) {
+  const { last, apply, log } = useOp(store, setStore, 'list');
+  const [pos, setPos] = useState('0');
+  return (
+    <div className="stack">
+      <PageHead eyebrow="Singly linked list" title={<>The <em>linked list.</em></>} description="Each node points to the next. Reaching position k means walking k links from the head." actions={<button type="button" className="btn btn-ghost" onClick={() => setStore({ ...store, list: initial().list })}>Reset</button>} />
+      <div className="card filters"><div className="field"><label htmlFor="pos">Insert at position</label><input id="pos" inputMode="numeric" value={pos} onChange={(e) => setPos(e.target.value)} style={{ maxWidth: 110 }} /></div></div>
+      <ValueInput label="Value" buttons={[
+        { label: 'Insert', act: (v) => apply(`insert(${pos}, ${v})`, insertAt(store.list, Number(pos), v!), (l) => ({ list: l })) },
+        { label: 'Append', act: (v) => apply(`append(${v})`, insertAt(store.list, store.list.length, v!), (l) => ({ list: l })) },
+        { label: 'Find', act: (v) => apply(`find(${v})`, find(store.list, v!), () => ({})) },
+        { label: 'Remove', act: (v) => apply(`remove(${v})`, removeValue(store.list, v!), (l) => ({ list: l })) },
+        { label: 'Reverse', need: false, act: () => apply('reverse()', reverse(store.list), (l) => ({ list: l })) },
+      ]} />
+      <Status last={last} />
+      <div className="layout-main">
+        <section className="card" aria-label={`Linked list: ${store.list.join(' → ') || 'empty'}`}>
+          <ol className="links" key={last?.tick}>
+            <li className="head-label mono small">head</li>
+            {store.list.map((v, i) => { const step = (last?.visited ?? []).indexOf(i); return <li key={`${i}-${v}`} className={`lnode ${step >= 0 ? 'hit' : ''}`} style={{ ['--d' as string]: `${Math.max(0, step) * 180}ms` }}><b>{v}</b><span className="ptr" aria-hidden="true">→</span></li>; })}
+            <li className="null mono small">null</li>
+          </ol>
+          <p className="small muted">Length {store.list.length}</p>
+        </section>
+        <aside className="card stack"><h2 className="h3">Log</h2><Log log={log} /></aside>
+      </div>
+    </div>
+  );
+}
+
+function BstPage({ store, setStore }: Ctx) {
+  const { last, apply, log } = useOp(store, setStore, 'bst');
+  const [order, setOrder] = useState<Order>('in');
+  const [trav, setTrav] = useState<{ keys: number[]; tick: number } | null>(null);
+  const v = bstView(store.bst);
+  const visited = trav ? trav.keys : last?.visited ?? [];
+  return (
+    <div className="stack">
+      <PageHead eyebrow="Binary search tree" title={<>The <em>search tree.</em></>} description="Smaller keys go left, larger keys go right — so a search only follows one path." actions={<><button type="button" className="btn btn-ghost" onClick={() => setStore({ ...store, bst: initial().bst })}>Reset</button><button type="button" className="btn btn-ghost" onClick={() => setStore({ ...store, bst: null })}>Empty</button></>} />
+      <ValueInput label="Key" buttons={[
+        { label: 'Insert', act: (k) => { setTrav(null); apply(`insert(${k})`, bstInsert(store.bst, k!), (t) => ({ bst: t })); } },
+        { label: 'Search', act: (k) => { setTrav(null); apply(`search(${k})`, bstSearch(store.bst, k!), () => ({})); } },
+        { label: 'Delete', act: (k) => { setTrav(null); apply(`delete(${k})`, bstDelete(store.bst, k!), (t) => ({ bst: t })); } },
+      ]} />
+      <Status last={trav ? null : last} />
+      <div className="layout-main">
+        <section className="card stack" aria-labelledby="t-h">
+          <h2 id="t-h" className="sr-only">Tree</h2>
+          <div className="tree-wrap"><Tree {...v} visited={visited} tick={trav?.tick ?? last?.tick} label={`Binary search tree with ${size(store.bst)} keys`} /></div>
+          <div className="row">
+            <label className="sr-only" htmlFor="order">Traversal order</label>
+            <select id="order" value={order} onChange={(e) => setOrder(e.target.value as Order)}><option value="in">In-order</option><option value="pre">Pre-order</option><option value="post">Post-order</option><option value="level">Level-order</option></select>
+            <button type="button" className="btn" onClick={() => setTrav({ keys: traverse(store.bst, order), tick: Date.now() })}>Play traversal</button>
+          </div>
+          {trav && <p className="trav mono" data-testid="traversal">{trav.keys.join(' → ') || 'empty'}</p>}
+        </section>
+        <aside className="card stack">
+          <div className="stats mini"><div className="stat"><span className="stat-label">Keys</span><span className="stat-value">{size(store.bst)}</span></div><div className="stat"><span className="stat-label">Height</span><span className="stat-value">{height(store.bst)}</span></div></div>
+          <p className="small muted">A balanced tree of {size(store.bst)} keys would have height {Math.ceil(Math.log2(size(store.bst) + 1))}. Insert keys in sorted order to see it degrade into a list.</p>
+          <h2 className="h3">Log</h2><Log log={log} />
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function HeapPage({ store, setStore }: Ctx) {
+  const { last, apply, log } = useOp(store, setStore, 'heap');
+  const v = heapView(store.heap);
+  return (
+    <div className="stack">
+      <PageHead eyebrow="Binary min-heap" title={<>The <em>heap.</em></>} description="Every parent is smaller than its children, so the minimum is always at the root. Stored in an array: the children of i are 2i+1 and 2i+2." actions={<button type="button" className="btn btn-ghost" onClick={() => setStore({ ...store, heap: initial().heap })}>Reset</button>} />
+      <ValueInput label="Value" buttons={[{ label: 'Insert', act: (x) => apply(`insert(${x})`, heapPush(store.heap, x!), (h) => ({ heap: h })) }, { label: 'Extract min', need: false, act: () => apply('extractMin()', heapPop(store.heap), (h) => ({ heap: h })) }]} />
+      <Status last={last} />
+      <div className="layout-main">
+        <section className="card stack">
+          <div className="tree-wrap"><Tree {...v} visited={last?.visited ?? []} tick={last?.tick} label={`Min-heap as a tree with ${store.heap.length} values`} /></div>
+          <h2 className="label">As an array</h2>
+          <Cells values={store.heap} visited={last?.visited ?? []} tick={last?.tick} labels={(i) => `[${i}]`} />
+        </section>
+        <aside className="card stack"><h2 className="h3">Log</h2><Log log={log} /></aside>
+      </div>
+    </div>
+  );
+}
