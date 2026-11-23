@@ -2,7 +2,7 @@
 
 A data-structures playground: operate a stack, a bounded queue, a singly linked list, a binary search tree and a min-heap. Every operation lights up the nodes it visits in order, explains what happened (including underflow, overflow and duplicates) and logs its Big-O cost.
 
-**Live demo:** [https://node-garden.vercel.app/](https://node-garden.vercel.app/) — runs entirely in your browser.
+**Live demo:** [https://node-garden-app.vercel.app/](https://node-garden-app.vercel.app/) — runs entirely in your browser.
 
 ![Landing with a BST search path](docs/landing.png)
 
